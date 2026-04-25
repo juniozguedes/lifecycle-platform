@@ -1,0 +1,6 @@
+[tools]
+python = "3.12"
+
+[env]
+# Point BigQuery client to local emulator
+CLOUDSDK_API_ENDPOINT_OVERRIDES_BIGQUERY = "http://localhost:9060"

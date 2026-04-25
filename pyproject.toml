@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "lifecycle-platform"
+version = "0.1.0"
+description = "Lifecycle platform"
+authors = ["Qualitara"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+google-cloud-bigquery = "^3.27.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
