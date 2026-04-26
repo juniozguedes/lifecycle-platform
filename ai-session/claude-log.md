@@ -64,3 +64,31 @@ The audience query implements all 8 criteria:
 - In-scope: churned, >30 days, 3+ searches, phone, sms_consent, not suppressed
 - Excluded: active subscription, dnd in future, <30 days ago, never_subscribed
 - Suppressed: renter_003, renter_008
+
+### Commit (2026-04-25)
+
+- Initial commit: `feat: initial lifecycle_platform setup with BigQuery schema and audience query`
+- Pushed to: `main` branch
+- Fix applied: TIMESTAMP_DIFF (cleaner for TIMESTAMP types)
+
+### Session: Part 2 Pipeline (2026-04-25)
+
+#### Actions Taken
+
+1. **Created pipeline orchestration** (`src/lifecycle_platform/pipeline.py`)
+2. **Implemented all Part 2 requirements**:
+   - Batching (max 100 recipients)
+   - Exponential backoff with jitter (max 5 retries)
+   - Deduplication (file-based sent_log)
+   - Error handling (failed batches logged)
+   - Metrics (total_sent, total_failed, total_skipped, elapsed_seconds)
+3. **Created unit tests** (4 tests, all passing)
+
+#### Files Created
+
+- `src/lifecycle_platform/pipeline.py` - Campaign execution module
+- `tests/test_pipeline.py` - Unit tests
+
+#### Commit (2026-04-25)
+
+- `feat: add pipeline orchestration with batching, retry, and dedup`
