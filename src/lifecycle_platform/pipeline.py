@@ -13,6 +13,13 @@ BASE_DELAY = 1.0
 MAX_JITTER = 0.5
 
 
+class ESPClient:
+    def send_batch(self, campaign_id: str, recipients: list[dict]) -> Any:
+        """Sends a batch of recipients to the ESP.
+        Returns a Response with .status_code and .json()"""
+        pass
+
+
 def load_sent_log(sent_log_path: str) -> set[str]:
     path = Path(sent_log_path)
     if not path.exists():
