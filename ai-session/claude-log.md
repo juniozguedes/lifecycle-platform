@@ -92,3 +92,57 @@ The audience query implements all 8 criteria:
 #### Commit (2026-04-25)
 
 - `feat: add pipeline orchestration with batching, retry, and dedup`
+
+---
+
+## Session: Code Audit & Fixes (2026-04-25)
+
+#### PR Review Actions
+
+Invoked `pr-reviewer` and `unit-test` skills to audit code.
+
+**Issues Found:**
+
+| File | Issue |
+|------|-------|
+| `pipeline.py` | Line 83: `except Exception` catch-all — too broad |
+| `pipeline.py` | Line 123: fragile `last_error in locals()` check |
+| `pipeline.py` | Missing return type on `save_failed_batch` |
+| `database.py` | Missing `Optional` import for type annotation |
+| `tests/test_pipeline.py` | Uses `print()` for assertions instead of pytest |
+
+#### Fixes Applied
+
+1. Added `Optional` import to `pipeline.py`
+2. Specific exception handling: `ConnectionError`, `TimeoutError`, `OSError` for retries
+3. Return 3-tuple from `send_batch_with_retry`: `(batch, success, error_msg)`
+4. Fixed error message: `error_msg or "unknown_error"`
+5. Added `Optional` import to `database.py`, fixed type annotation
+6. Rewrote tests in proper pytest style with classes
+
+#### Test Coverage Added
+
+- `TestCreateBatches` (3 tests)
+- `TestRetryWithBackoff` (2 tests)
+- `TestLoadSentLog` (3 tests)
+- `TestExecuteCampaignSend` (4 tests)
+
+**Result: 12 tests, all passing**
+
+---
+
+## Session: Skills & AGENTS.md (2026-04-26)
+
+#### Actions Taken
+
+1. **Copied skills to project**:
+   - `skills/pr-reviewer/skill.md` - Code review skill
+   - `skills/unit-test/skill.md` - Unit test skill
+
+2. **Created project AGENTS.md** with:
+   - Global coding standards
+   - Project-specific Lifecycle Platform details
+   - Tech stack, architecture, local development commands
+   - Skills invocation guide
+   - Database schema
+   - Campaign pipeline parts

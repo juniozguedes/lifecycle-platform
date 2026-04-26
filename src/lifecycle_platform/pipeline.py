@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +64,13 @@ def send_batch_with_retry(
     batch: list[dict],
     esp_client: Any,
     max_retries: int = MAX_RETRIES,
-) -> tuple[list[dict], bool]:
-    last_error = None
+) -> tuple[list[dict], bool, Optional[str]]:
+    last_error: Optional[str] = None
     for attempt in range(max_retries + 1):
         try:
             response = esp_client.send_batch(campaign_id, batch)
             if response.status_code == 200:
-                return [], True
+                return [], True, None
             elif response.status_code == 429:
                 last_error = "rate_limited"
                 delay = retry_with_backoff(attempt)
@@ -79,16 +79,20 @@ def send_batch_with_retry(
                 continue
             else:
                 last_error = f"http_{response.status_code}"
-                return batch, False
-        except Exception as e:
+                return batch, False, last_error
+        except (ConnectionError, TimeoutError, OSError) as e:
             last_error = str(e)
             if attempt < max_retries:
                 delay = retry_with_backoff(attempt)
                 logger.warning(f"Error: {e}, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
                 time.sleep(delay)
             else:
-                return batch, False
-    return batch, False
+                return batch, False, last_error
+        except Exception as e:
+            last_error = str(e)
+            logger.error(f"Unexpected error: {e}")
+            return batch, False, last_error
+    return batch, False, last_error
 
 
 def execute_campaign_send(
@@ -112,7 +116,7 @@ def execute_campaign_send(
 
     for i, batch in enumerate(batches):
         logger.info(f"Sending batch {i + 1}/{len(batches)} ({len(batch)} recipients)")
-        failed_batch, success = send_batch_with_retry(campaign_id, batch, esp_client)
+        failed_batch, success, error_msg = send_batch_with_retry(campaign_id, batch, esp_client)
 
         if success:
             total_sent += len(batch)
@@ -120,7 +124,7 @@ def execute_campaign_send(
                 sent_ids.add(r.get("renter_id"))
         else:
             total_failed += len(failed_batch)
-            save_failed_batch(failed_log_path, campaign_id, failed_batch, last_error if 'last_error' in locals() else "unknown")
+            save_failed_batch(failed_log_path, campaign_id, failed_batch, error_msg or "unknown_error")
             logger.error(f"Batch {i + 1} failed: {len(failed_batch)} recipients could not be sent")
 
     save_sent_log(sent_log_path, sent_ids)

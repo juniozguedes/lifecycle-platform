@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 from google.cloud import bigquery
 from google.auth.credentials import AnonymousCredentials
 
@@ -41,7 +42,7 @@ def run_audience_query(client: bigquery.Client) -> list[dict]:
     return [dict(row) for row in results]
 
 
-def setup_database(client: bigquery.Client = None) -> bigquery.Client:
+def setup_database(client: Optional[bigquery.Client] = None) -> bigquery.Client:
     if client is None:
         client = get_bigquery_client()
     create_schema(client)
