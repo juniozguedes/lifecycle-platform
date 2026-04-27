@@ -166,3 +166,52 @@ Invoked `pr-reviewer` and `unit-test` skills to audit code.
 
 #### Tests
 - 12 tests passing
+
+---
+
+## Session: BigQuery Setup & Production Ready (2026-04-27)
+
+### Issue Encountered
+
+LocalGCP requires Docker. Docker wasn't running — Colima (Docker backend) was not started.
+
+### Solution
+
+Started Colima with qemu driver (vz was failing):
+```bash
+colima start --vm-type=qemu --cpu 1 --memory 2
+localgcp up --services=bigquery
+```
+
+### Actions Taken
+
+1. **Fixed DuckDB compatibility**:
+   - `TIMESTAMP_DIFF` not supported → used `EPOCH()` calculation
+   - `CURRENT_TIMESTAMP()` → `CURRENT_TIMESTAMP::TIMESTAMP`
+
+2. **Made database setup production-ready**:
+   - Removed all DROP statements from schema.sql
+   - Added `CREATE TABLE IF NOT EXISTS` for idempotent creation
+   - Created `sql/init_schema.sql` (schema only)
+   - Separated functions:
+     - `initialize_schema()` — production (schema only)
+     - `load_seed_data()` — dev only, never auto
+     - `setup_for_development()` — dev setup (schema + seed)
+     - `run_audience_query()` — production query
+
+3. **Updated CLI support**:
+   - `--mode production` — schema only
+   - `--mode development` — schema + seed data
+
+4. **End-to-end test verified**:
+   - BigQuery query works
+   - Pipeline sends successfully
+   - 12 tests passing
+
+### Files Changed
+
+- `sql/schema.sql` — removed DROP, added IF NOT EXISTS
+- `sql/init_schema.sql` — new file (schema only)
+- `sql/audience_query.sql` — EPOCH calculation
+- `src/lifecycle_platform/database.py` — separated functions
+- `README.md` — updated documentation
