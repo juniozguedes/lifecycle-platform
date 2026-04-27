@@ -1,14 +1,12 @@
+import argparse
 import os
 from pathlib import Path
-from typing import Optional
-from google.cloud import bigquery
-from google.auth import credentials
-import argparse
 
+from google.auth import credentials
+from google.cloud import bigquery
 
 SCHEMA_FILE = Path(__file__).parent.parent.parent / "sql" / "schema.sql"
 SEED_FILE = Path(__file__).parent.parent.parent / "sql" / "seed_data.sql"
-QUERY_FILE = Path(__file__).parent.parent.parent / "sql" / "audience_query.sql"
 
 
 def get_bigquery_client(project_id: str = "local-project") -> bigquery.Client:
@@ -40,20 +38,13 @@ def load_seed_data(client: bigquery.Client) -> None:
         client.query(stmt).result()
 
 
-def run_audience_query(client: bigquery.Client) -> list[dict]:
-    """Executes the audience query for production campaigns."""
-    query = load_sql_file(QUERY_FILE)[0]
-    results = client.query(query).result()
-    return [dict(row) for row in results]
-
-
 def setup_for_development(client: bigquery.Client) -> None:
     """Dev only: create schema + load seed data."""
     initialize_schema(client)
     load_seed_data(client)
 
 
-def setup_database(client: Optional[bigquery.Client] = None) -> bigquery.Client:
+def setup_database(client: bigquery.Client | None = None) -> bigquery.Client:
     """Deprecated: Use initialize_schema() for production or setup_for_development() for dev."""
     if client is None:
         client = get_bigquery_client()
@@ -63,6 +54,8 @@ def setup_database(client: Optional[bigquery.Client] = None) -> bigquery.Client:
 
 
 if __name__ == "__main__":
+    from .repository import run_audience_query
+
     parser = argparse.ArgumentParser(description="Lifecycle Platform Database Setup")
     parser.add_argument(
         "--mode",

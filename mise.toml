@@ -1,6 +1,30 @@
 [tools]
 python = "3.12"
+ruff = "latest"
 
 [env]
 # Point BigQuery client to local emulator
 CLOUDSDK_API_ENDPOINT_OVERRIDES_BIGQUERY = "http://localhost:9060"
+
+[tasks.lint]
+description = "Run all linters"
+run = [
+    "mise lint-format",
+    "mise lint-ruff",
+]
+
+[tasks.lint-fix]
+description = "Auto-fix formatting and lint issues"
+run = "ruff format src tests && ruff check --fix src tests"
+
+[tasks.lint-format]
+description = "Check formatting with ruff"
+run = "ruff format --check src tests"
+
+[tasks.lint-ruff]
+description = "Lint using ruff"
+run = "ruff check src tests"
+
+[tasks.test]
+description = "Run unit tests using pytest"
+run = "pytest tests/"
