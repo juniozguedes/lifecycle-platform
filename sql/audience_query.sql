@@ -18,7 +18,7 @@ SELECT
     p.phone,
     p.last_login,
     COUNT(a.renter_id) AS search_count,
-    TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), p.last_login, DAY) AS days_since_login
+    (EPOCH(CURRENT_TIMESTAMP::TIMESTAMP) - EPOCH(p.last_login)) / 86400 AS days_since_login
 FROM renter_profiles p
 LEFT JOIN renter_activity a
     ON p.renter_id = a.renter_id
