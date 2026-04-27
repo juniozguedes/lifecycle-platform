@@ -23,6 +23,17 @@
 ### After each prompt (REQUIRED)
 - Check for repeated/dead code/logic in the modified files
 
+### DRY Principle (Don't Repeat Yourself)
+- **MANDATORY**: Before writing any function or helper, check if it already exists in the codebase
+- **Search first**: Use grep/glob to find existing implementations before creating new ones
+- **Shared utilities**: If the same logic is needed in multiple modules, extract to a shared module and import
+- **Examples**:
+  - `load_sql_file()` used in both `database.py` and `repository.py` → extract to one place, import from there
+  - SQL file paths defined multiple times → define once in a config/constants module
+  - Same validation logic in multiple endpoints → extract to middleware or decorator
+- **Anti-pattern**: Copy-pasting code between files with minor changes
+- **Refactor first**: If I find myself writing similar code, stop and refactor to share the logic
+
 ## Development Conventions
 
 ### Imports

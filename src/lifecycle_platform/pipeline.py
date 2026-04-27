@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +71,8 @@ def send_batch_with_retry(
     batch: list[dict],
     esp_client: Any,
     max_retries: int = MAX_RETRIES,
-) -> tuple[list[dict], bool, Optional[str]]:
-    last_error: Optional[str] = None
+) -> tuple[list[dict], bool, str | None]:
+    last_error: str | None = None
     for attempt in range(max_retries + 1):
         try:
             response = esp_client.send_batch(campaign_id, batch)

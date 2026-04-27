@@ -215,3 +215,39 @@ localgcp up --services=bigquery
 - `sql/audience_query.sql` — EPOCH calculation
 - `src/lifecycle_platform/database.py` — separated functions
 - `README.md` — updated documentation
+
+---
+
+## Session: Repository Pattern & Linting (2026-04-27)
+
+### Actions
+
+1. **Refactored to repository pattern**:
+   - Created `repository.py` with `AudienceRepository` class
+   - Separated business logic from infrastructure
+   - Clean import in `database.py` (inside __main__)
+
+2. **Fixed DRY violation**:
+   - Removed duplicate `load_sql_file()` from repository.py
+   - Now imports from `database.py`
+
+3. **Updated DRY in AGENTS.md**:
+   - Global: `~/.config/opencode/AGENTS.md`
+   - Project: `lifecycle-platform/AGENTS.md`
+
+4. **Added linting with Ruff**:
+   - Added ruff to pyproject.toml
+   - Added lint tasks to mise.toml
+   - Fixed 12 lint errors
+   - All lint checks pass
+
+### Files Changed
+
+- `src/lifecycle_platform/repository.py` - NEW
+- `src/lifecycle_platform/database.py` - refactored
+- `pyproject.toml` - added ruff
+- `mise.toml` - added lint tasks
+- `AGENTS.md` (both) - added DRY principle
+
+### Tests
+12 passing
