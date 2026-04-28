@@ -14,6 +14,7 @@
 - Agent is responsible for creating PRs (no PULL_REQUEST.md files)
 
 ### After every explicit "commit and push the code" request:
+0. Run the skill `pr-reviewer/` and make sure that the code passes the review
 1. Verify code is correct (run project's lint/typecheck/tests if they exist)
 2. Update AGENTS.md only if new architecture is added
 3. Commit by categories (feat, fix, refactor, docs, etc.)
@@ -61,7 +62,8 @@
 
 ### Architecture
 - `sql/` — SQL schemas, seed data, and queries
-- `src/lifecycle_platform/` — Python modules
+- `src/` — Python modules (`database.py`, `repository.py`, `pipeline.py`)
+- `dags/` — Airflow DAG and helper modules
 - `tests/` — pytest unit tests
 - `skills/` — AI agent skill definitions
 
@@ -77,8 +79,11 @@ pip install -e .
 # Run tests
 pytest tests/
 
-# Setup database
-python -c "from src.lifecycle_platform.database import setup_database; setup_database()"
+# Setup schema only (production)
+python -m src.database --mode production
+
+# Setup schema + seed data (development)
+python -m src.database --mode development
 ```
 
 ### Skills

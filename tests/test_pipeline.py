@@ -1,23 +1,21 @@
 """Tests for pipeline module."""
 
 import json
-import pytest
+import os
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from src.lifecycle_platform.pipeline import (
+import pytest
+
+from src.pipeline import (
     create_batches,
     execute_campaign_send,
     load_sent_log,
     retry_with_backoff,
-    save_failed_batch,
-    save_sent_log,
 )
 
 
 class TestCreateBatches:
-    """Tests for create_batches function."""
-
     def test_splits_audience_into_batches(self) -> None:
         audience = [{"renter_id": f"renter_{i:03d}"} for i in range(250)]
         batches = create_batches(audience, batch_size=100)
@@ -38,8 +36,6 @@ class TestCreateBatches:
 
 
 class TestRetryWithBackoff:
-    """Tests for retry_with_backoff function."""
-
     def test_delay_increases_exponentially(self) -> None:
         delays = [retry_with_backoff(i) for i in range(3)]
         assert delays[1] > delays[0]
@@ -52,8 +48,6 @@ class TestRetryWithBackoff:
 
 
 class TestLoadSentLog:
-    """Tests for load_sent_log function."""
-
     def test_returns_empty_set_when_file_not_exists(self, tmp_path: Path) -> None:
         result = load_sent_log(str(tmp_path / "nonexistent.json"))
         assert result == set()
@@ -72,8 +66,6 @@ class TestLoadSentLog:
 
 
 class TestExecuteCampaignSend:
-    """Tests for execute_campaign_send function."""
-
     def test_skips_already_sent_renters(self, tmp_path: Path) -> None:
         sent_log = tmp_path / "sent.json"
         sent_log.write_text(json.dumps({"sent_renter_ids": ["renter_001", "renter_002"]}))
@@ -134,18 +126,16 @@ class TestExecuteCampaignSend:
                 nonlocal call_count
                 call_count += 1
                 response = MagicMock()
-                if call_count == 1:
-                    response.status_code = 429
-                else:
-                    response.status_code = 200
+                response.status_code = 429 if call_count == 1 else 200
                 return response
 
-        result = execute_campaign_send(
-            campaign_id="test_campaign",
-            audience=audience,
-            esp_client=MockESP(),
-            sent_log_path=str(sent_log),
-        )
+        with patch("src.pipeline.time.sleep"):
+            result = execute_campaign_send(
+                campaign_id="test_campaign",
+                audience=audience,
+                esp_client=MockESP(),
+                sent_log_path=str(sent_log),
+            )
 
         assert result["total_sent"] == 1
         assert call_count == 2
@@ -158,22 +148,15 @@ class TestExecuteCampaignSend:
             def send_batch(self, campaign_id: str, recipients: list) -> MagicMock:
                 response = MagicMock()
                 response.status_code = 500
-                response.json = lambda: {"error": "server_error"}
                 return response
 
-        import os
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(tmp_path)
-            result = execute_campaign_send(
-                campaign_id="test_campaign",
-                audience=audience,
-                esp_client=MockESP(),
-                sent_log_path=str(sent_log),
-            )
-        finally:
-            os.chdir(original_cwd)
+        result = execute_campaign_send(
+            campaign_id="test_campaign",
+            audience=audience,
+            esp_client=MockESP(),
+            sent_log_path=str(sent_log),
+            failed_log_path=str(tmp_path / "failed_batches.json"),
+        )
 
         assert result["total_failed"] == 1
-        failed_log = tmp_path / "failed_batches.json"
-        assert failed_log.exists()
+        assert (tmp_path / "failed_batches.json").exists()

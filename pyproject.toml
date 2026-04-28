@@ -11,6 +11,7 @@ google-cloud-bigquery = "^3.27.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
 ruff = "^0.11"
+apache-airflow = "^2.10.0"
 
 [tool.ruff]
 target-version = "py312"
