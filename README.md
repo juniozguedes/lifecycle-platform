@@ -39,6 +39,36 @@ python -m src.lifecycle_platform.database --mode development
 
 **Important:** Seed data never loads automatically. Only use `setup_for_development()` for local development/demo.
 
+## Run with Docker (Airflow)
+
+```bash
+# Copy environment template and edit with your values
+cp .env.development .env  # Or create your own with real keys
+
+# Generate secure keys for production:
+# python -c "import secrets; print(secrets.token_hex(32))"
+
+# Start Airflow
+docker-compose up -d
+
+# Access UI at http://localhost:8080
+# Default credentials: admin / admin (or from .env)
+```
+
+### Security Warning (IMPORTANT)
+
+The default `.env.development` file contains placeholder keys (`changeme`) for **local testing only**.
+
+**Not suitable for production!** The placeholder keys are:
+- NOT cryptographically secure
+- Publicly known (not secret)
+
+For production, generate real keys:
+```bash
+FERNET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+```
+
 ## Run Tests
 
 ```bash

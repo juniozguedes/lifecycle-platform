@@ -251,3 +251,47 @@ localgcp up --services=bigquery
 
 ### Tests
 12 passing
+
+---
+
+## Session: Restructure & Airflow Integration (2026-04-28)
+
+### Actions Taken
+
+1. **Restructured codebase**:
+   - Moved `src/lifecycle_platform/` → `src/`
+   - Added `dags/` for Apache Airflow
+   - Added `docker-compose.yml` for local dev (with env vars, no hardcoded secrets)
+   - Added `.env.example` template
+
+2. **Created Airflow DAG** (`dags/sms_reactivation_dag.py`):
+   - Daily SMS reactivation campaign
+   - Tasks: query → validate → send → report
+   - Slack notifications for success/failure
+   - BigQuery reporting table integration
+
+3. **PR Review fixes**:
+   - Fixed type annotation on `execute_campaign_send()`
+   - Removed duplicate `src/sql/init_schema.sql`
+   - Fixed misleading log message in helpers.py
+
+4. **Security fix**:
+   - Removed hardcoded secrets from docker-compose.yml
+   - Now uses environment variables via .env file
+   - Added .env to .gitignore
+
+### Files Changed
+
+- `src/database.py` - moved from lifecycle_platform
+- `src/pipeline.py` - moved from lifecycle_platform  
+- `src/repository.py` - moved from lifecycle_platform
+- `dags/sms_reactivation_dag.py` - NEW (Airflow DAG)
+- `dags/helpers.py` - NEW (Slack + validation helpers)
+- `docker-compose.yml` - NEW (uses env vars)
+- `.env.example` - NEW (template)
+- `poetry.lock` - NEW
+- `AGENTS.md` - updated architecture
+- `.gitignore` - updated with .env
+
+### Tests
+12 passing
