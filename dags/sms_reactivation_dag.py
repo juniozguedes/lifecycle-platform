@@ -1,14 +1,13 @@
 """SMS Reactivation DAG for the lifecycle platform."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from airflow import DAG
 from airflow.decorators import task
 from airflow.models.variable import Variable
 from airflow.operators.python import get_current_context
-
 from helpers import (
     log_to_reporting_table,
     send_slack_alert,
@@ -17,6 +16,7 @@ from helpers import (
     validate_audience_size,
     validate_recipient_data,
 )
+
 from src.database import get_bigquery_client, initialize_schema, load_seed_data
 from src.pipeline import ESPClient, execute_campaign_send
 from src.repository import AudienceRepository
@@ -85,12 +85,12 @@ with DAG(
         all_tables_have_data = True
 
         for dataset_id, table_name in required_tables:
-            # Determine the dataset to use
-            dataset_name = dataset_id.strip() if dataset_id.strip() else "lifecycle_platform"
-            full_table_name = f"{dataset_name}.{table_name}"
+            # Use None for default dataset (tables created without dataset prefix)
+            dataset_name = dataset_id if dataset_id else None
+            full_table_name = f"{dataset_name}.{table_name}" if dataset_id else table_name
 
             try:
-                table_ref = client.dataset(dataset_name).table(table_name)
+                table_ref = client.dataset(dataset_name).table(table_name) if dataset_name else client.table(table_name)
                 table = client.get_table(table_ref)
                 # Table exists, check if it has data
                 if table.num_rows == 0:
@@ -129,7 +129,7 @@ with DAG(
             "status": "completed",
             "tables_created": tables_created,
             "seed_data_loaded": seed_data_loaded,
-            "provisioning_timestamp": datetime.now(timezone.utc).isoformat(),
+            "provisioning_timestamp": datetime.now(UTC).isoformat(),
         }
 
     @task(task_id="run_audience_query")
@@ -144,7 +144,7 @@ with DAG(
         return {
             "recipients": recipients,
             "count": count,
-            "query_timestamp": datetime.now(timezone.utc).isoformat(),
+            "query_timestamp": datetime.now(UTC).isoformat(),
         }
 
     @task(task_id="validate_audience")
