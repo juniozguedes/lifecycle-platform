@@ -7,13 +7,11 @@ dist/
 build/
 .eggs/
 *.egg
-.env
 .venv
 venv/
 ENV/
 sent_renters.json
 failed_batches.json
 *.log
-.DS_Store
-.env
+.DS_Store 
 plan.md
