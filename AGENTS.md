@@ -50,7 +50,7 @@
 ### Comments
 - Do NOT add comments that restate what the code says
 - Only explain non-obvious intent, trade-offs, or constraints
-- Avoid naive docstrings
+- **NEVER add file header docstrings** explaining what the file is about (e.g., "This module handles database operations")
 
 ## Lifecycle Platform
 
