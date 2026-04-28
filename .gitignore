@@ -15,5 +15,5 @@ sent_renters.json
 failed_batches.json
 *.log
 .DS_Store
-plan.md
+.env
 plan.md
