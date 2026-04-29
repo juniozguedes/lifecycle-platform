@@ -10,7 +10,11 @@ SEED_FILE = Path(__file__).parent / "sql" / "seed_data.sql"
 
 
 def get_bigquery_client(project_id: str = "local-project") -> bigquery.Client:
-    endpoint = os.environ.get("CLOUDSDK_API_ENDPOINT_OVERRIDES_BIGQUERY", "http://localhost:9060")
+    endpoint = (
+        os.environ.get("CLOUDSDK_API_ENDPOINT_OVERRIDES_BIGQUERY")
+        or os.environ.get("CLOUDSDK_API_ENDPOINT_OVERRIDE_BIGQUERY")
+        or "http://localhost:9060"
+    )
     return bigquery.Client(
         project=project_id,
         credentials=credentials.AnonymousCredentials(),
@@ -45,8 +49,6 @@ def setup_for_development(client: bigquery.Client) -> None:
 
 
 if __name__ == "__main__":
-    from repository import run_audience_query
-
     parser = argparse.ArgumentParser(description="Lifecycle Platform Database Setup")
     parser.add_argument(
         "--mode",
@@ -64,6 +66,8 @@ if __name__ == "__main__":
     else:
         print("Setting up schema for production...")
         initialize_schema(client)
+
+    from src.repository import run_audience_query
 
     print("Running audience query...")
     results = run_audience_query(client)

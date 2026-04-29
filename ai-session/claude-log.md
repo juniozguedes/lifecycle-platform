@@ -295,3 +295,53 @@ localgcp up --services=bigquery
 
 ### Tests
 12 passing
+
+---
+
+## Session: Helper Refactor & DAG Simplification (2026-04-29)
+
+### Actions Taken
+
+1. **Refactored `dags/helpers.py`**:
+   - Simplified datetime handling: use `datetime.now(UTC)` instead of `datetime.now(timezone.utc)`
+   - Added `sql_literal()` helper for safe SQL value interpolation
+   - Removed BigQuery query parameters in favor of literal values
+   - Made `REPORTING_TABLE` configurable via env var
+
+2. **Simplified DAG provisioning**:
+   - Check `renter_profiles` row count instead of table existence
+   - Idempotent: only load seed data when profiles table is empty
+   - Cleaner logic with try/except instead of pre-checks
+
+3. **Updated docker-compose.yml**:
+   - Added healthcheck for postgres
+   - Added hostnames for services
+   - Added BigQuery endpoint env vars
+   - Added CSRF disabled for local dev
+   - Fixed airflow-init with db migrate + user creation
+
+4. **Updated local dev config**:
+   - Added `BIGQUERY_ENDPOINT` to .env
+   - Security keys included (for local POC evaluation)
+
+5. **Removed obsolete wrapper module**:
+   - Deleted `src/lifecycle_platform/` nested package
+   - All imports now use flat `src/` structure
+
+### Files Changed
+
+- `dags/helpers.py` - simplified datetime, sql_literal
+- `dags/sms_reactivation_dag.py` - simplified provisioning logic
+- `docker-compose.yml` - healthcheck, hostnames, env vars
+- `src/database.py` - updated BigQuery endpoint lookup
+- `src/sql/schema.sql` - simplified campaign_results table
+- `.env` - added BIGQUERY_ENDPOINT, security keys
+
+### Commit (2026-04-29)
+
+- `refactor: simplify helpers and DAG provisioning, update local dev config`
+- Pushed to: `dev` branch
+- PR opened: https://github.com/juniozguedes/lifecycle-platform/pull/5
+
+### Tests
+12 passing

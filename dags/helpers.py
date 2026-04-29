@@ -2,16 +2,25 @@
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from google.api_core import exceptions as gcp_exceptions
-from google.cloud import bigquery
 
 logger = logging.getLogger(__name__)
 
 SLACK_WEBHOOK_ENV = "SLACK_WEBHOOK_URL"
-REPORTING_TABLE = "lifecycle_platform.campaign_results"
+REPORTING_TABLE = os.environ.get("REPORTING_TABLE", "campaign_results")
+
+
+def sql_literal(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return "'" + str(value).replace("\\", "\\\\").replace("'", "''") + "'"
 
 
 def get_slack_webhook() -> str | None:
@@ -76,7 +85,7 @@ def send_slack_success(
 
 
 def log_to_reporting_table(
-    client: bigquery.Client,
+    client: Any,
     campaign_id: str,
     audience_count: int,
     sent_count: int,
@@ -87,8 +96,8 @@ def log_to_reporting_table(
     status: str = "completed",
     error_message: str | None = None,
 ) -> bool:
-    exec_time = execution_date or datetime.now(timezone.utc)
-    created_at = datetime.now(timezone.utc)
+    exec_time = execution_date or datetime.now(UTC)
+    created_at = datetime.now(UTC)
 
     query = f"""
     INSERT INTO `{REPORTING_TABLE}` (
@@ -104,36 +113,21 @@ def log_to_reporting_table(
         created_at
     )
     VALUES (
-        @campaign_id,
-        @execution_date,
-        @audience_count,
-        @sent_count,
-        @failed_count,
-        @skipped_count,
-        @duration_seconds,
-        @status,
-        @error_message,
-        @created_at
+        {sql_literal(campaign_id)},
+        {sql_literal(exec_time.isoformat())},
+        {sql_literal(audience_count)},
+        {sql_literal(sent_count)},
+        {sql_literal(failed_count)},
+        {sql_literal(skipped_count)},
+        {sql_literal(duration_seconds)},
+        {sql_literal(status)},
+        {sql_literal(error_message)},
+        {sql_literal(created_at.isoformat())}
     )
     """
 
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("campaign_id", "STRING", campaign_id),
-            bigquery.ScalarQueryParameter("execution_date", "TIMESTAMP", exec_time),
-            bigquery.ScalarQueryParameter("audience_count", "INT64", audience_count),
-            bigquery.ScalarQueryParameter("sent_count", "INT64", sent_count),
-            bigquery.ScalarQueryParameter("failed_count", "INT64", failed_count),
-            bigquery.ScalarQueryParameter("skipped_count", "INT64", skipped_count),
-            bigquery.ScalarQueryParameter("duration_seconds", "FLOAT64", duration_seconds),
-            bigquery.ScalarQueryParameter("status", "STRING", status),
-            bigquery.ScalarQueryParameter("error_message", "STRING", error_message),
-            bigquery.ScalarQueryParameter("created_at", "TIMESTAMP", created_at),
-        ]
-    )
-
     try:
-        client.query(query, job_config=job_config).result()
+        client.query(query).result()
         logger.info("Logged results to reporting table: campaign=%s, status=%s", campaign_id, status)
         return True
     except gcp_exceptions.GoogleAPIError as e:
