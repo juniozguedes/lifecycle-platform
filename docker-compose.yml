@@ -21,6 +21,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - lifecycle_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-airflow_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -33,6 +38,7 @@ services:
   airflow-webserver:
     image: apache/airflow:2.10.0-python3.12
     container_name: lifecycle-airflow-webserver
+    hostname: airflow-webserver
     command: webserver
     depends_on:
       postgres:
@@ -44,15 +50,21 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
       AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${SECRET_KEY}
+      AIRFLOW__WEBSERVER__CSRF_ENABLED: "False"
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       _AIRFLOW_WWW_USER_USERNAME: ${ADMIN_USER}
       _AIRFLOW_WWW_USER_PASSWORD: ${ADMIN_PASS}
+      PYTHONPATH: /opt/airflow
+      CLOUDSDK_API_ENDPOINT_OVERRIDES_BIGQUERY: ${BIGQUERY_ENDPOINT}
+      CLOUDSDK_API_ENDPOINT_OVERRIDE_BIGQUERY: ${BIGQUERY_ENDPOINT}
     ports:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - airflow_logs:/opt/airflow/logs
     user: "${AIRFLOW_UID:-50000}:0"
     networks:
       - lifecycle_network
@@ -60,6 +72,7 @@ services:
   airflow-scheduler:
     image: apache/airflow:2.10.0-python3.12
     container_name: lifecycle-airflow-scheduler
+    hostname: airflow-scheduler
     command: scheduler
     depends_on:
       postgres:
@@ -70,9 +83,16 @@ services:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
       AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${SECRET_KEY}
+      AIRFLOW__WEBSERVER__CSRF_ENABLED: "False"
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+      PYTHONPATH: /opt/airflow
+      CLOUDSDK_API_ENDPOINT_OVERRIDES_BIGQUERY: ${BIGQUERY_ENDPOINT}
+      CLOUDSDK_API_ENDPOINT_OVERRIDE_BIGQUERY: ${BIGQUERY_ENDPOINT}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
+      - airflow_logs:/opt/airflow/logs
     user: "${AIRFLOW_UID:-50000}:0"
     networks:
       - lifecycle_network
@@ -80,7 +100,8 @@ services:
   airflow-init:
     image: apache/airflow:2.10.0-python3.12
     container_name: lifecycle-airflow-init
-    command: version
+    entrypoint: /bin/bash
+    command: -c "airflow db migrate && airflow users create --username ${ADMIN_USER} --password ${ADMIN_PASS} --firstname Admin --lastname User --role Admin --email admin@example.com || true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,8 +109,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER}:${DB_PASS}@postgres:5432/${DB_NAME}
       AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
-      _AIRFLOW_DB_MIGRATE: "true"
-      _AIRFLOW_WWW_USER_CREATE: "true"
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${SECRET_KEY}
     user: "${AIRFLOW_UID:-50000}:0"
     networks:
       - lifecycle_network
@@ -100,3 +120,4 @@ networks:
 
 volumes:
   postgres_data:
+  airflow_logs:

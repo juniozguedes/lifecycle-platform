@@ -33,9 +33,10 @@ CREATE TABLE IF NOT EXISTS suppression_list (
 );
 
 -- 4. Campaign Results Reporting Table
-CREATE SCHEMA IF NOT EXISTS lifecycle_platform;
-
-CREATE TABLE IF NOT EXISTS lifecycle_platform.campaign_results (
+-- LocalGCP/DuckDB resolves dataset-qualified CREATE TABLE statements as root tables,
+-- so the local default reporting table is campaign_results. Production can override
+-- REPORTING_TABLE to a fully qualified BigQuery table name.
+CREATE TABLE IF NOT EXISTS campaign_results (
     campaign_id STRING,
     execution_date TIMESTAMP,
     audience_count INT64,

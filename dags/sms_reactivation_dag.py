@@ -1,8 +1,12 @@
 """SMS Reactivation DAG for the lifecycle platform."""
 
 import logging
+import sys
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+if '/opt/airflow' not in sys.path:
+    sys.path.insert(0, '/opt/airflow')
 
 from airflow import DAG
 from airflow.decorators import task
@@ -16,8 +20,11 @@ from helpers import (
     validate_audience_size,
     validate_recipient_data,
 )
-
-from src.database import get_bigquery_client, initialize_schema, load_seed_data
+from src.database import (
+    get_bigquery_client,
+    initialize_schema,
+    load_seed_data,
+)
 from src.pipeline import ESPClient, execute_campaign_send
 from src.repository import AudienceRepository
 
@@ -74,61 +81,33 @@ with DAG(
         logger.info("Starting database provisioning for project: %s", project_id)
         client = get_bigquery_client(project_id)
 
-        required_tables = [
-            ("", "renter_activity"),
-            ("", "renter_profiles"),
-            ("", "suppression_list"),
-            ("ml_predictions", "renter_send_scores"),
-        ]
+        logger.info("Ensuring database schema exists...")
+        initialize_schema(client)
+        logger.info("Database schema is ready")
 
-        tables_exist = True
-        all_tables_have_data = True
+        # Seed data is optional/idempotency-sensitive, so only load it when profiles are empty.
+        try:
+            result = list(client.query("SELECT COUNT(*) as cnt FROM `renter_profiles`").result())
+            row_count = result[0].cnt if result else 0
+            if row_count > 0:
+                logger.info("renter_profiles already has %d rows, skipping seed data", row_count)
+                return {
+                    "status": "skipped",
+                    "tables_created": True,
+                    "seed_data_loaded": False,
+                    "provisioning_timestamp": datetime.now(UTC).isoformat(),
+                }
+        except Exception:
+            logger.info("Unable to count renter_profiles rows after schema creation; loading seed data...")
 
-        for dataset_id, table_name in required_tables:
-            # Use None for default dataset (tables created without dataset prefix)
-            dataset_name = dataset_id if dataset_id else None
-            full_table_name = f"{dataset_name}.{table_name}" if dataset_id else table_name
-
-            try:
-                table_ref = client.dataset(dataset_name).table(table_name) if dataset_name else client.table(table_name)
-                table = client.get_table(table_ref)
-                # Table exists, check if it has data
-                if table.num_rows == 0:
-                    logger.info("Table %s exists but is empty", full_table_name)
-                    all_tables_have_data = False
-                else:
-                    logger.info("Table %s exists with %d rows", full_table_name, table.num_rows)
-            except Exception as e:
-                # Table doesn't exist
-                logger.info("Table %s not found: %s", full_table_name, str(e))
-                tables_exist = False
-                all_tables_have_data = False
-
-        tables_created = False
-        seed_data_loaded = False
-
-        if not tables_exist:
-            logger.info("Creating database schema...")
-            initialize_schema(client)
-            tables_created = True
-            logger.info("Schema created successfully")
-            # After creating schema, load seed data
-            logger.info("Loading seed data...")
-            load_seed_data(client)
-            seed_data_loaded = True
-            logger.info("Seed data loaded successfully")
-        elif not all_tables_have_data:
-            logger.info("Tables exist but some are empty, loading seed data...")
-            load_seed_data(client)
-            seed_data_loaded = True
-            logger.info("Seed data loaded successfully")
-        else:
-            logger.info("All tables exist with data, provisioning complete (skipped)")
+        logger.info("renter_profiles is empty, loading seed data...")
+        load_seed_data(client)
+        logger.info("Seed data loaded successfully")
 
         return {
             "status": "completed",
-            "tables_created": tables_created,
-            "seed_data_loaded": seed_data_loaded,
+            "tables_created": True,
+            "seed_data_loaded": True,
             "provisioning_timestamp": datetime.now(UTC).isoformat(),
         }
 
@@ -192,6 +171,7 @@ with DAG(
                 "error_message": "empty_audience",
                 "audience_count": 0,
             }
+
         logger.info("Starting campaign send: campaign_id=%s, recipients=%d", CAMPAIGN_ID, len(recipients))
         esp_client = ESPClient()
         result = execute_campaign_send(campaign_id=CAMPAIGN_ID, audience=recipients, esp_client=esp_client)
