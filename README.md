@@ -1,8 +1,8 @@
 # Lifecycle Platform
 
-Automated SMS reactivation pipeline for the lifecycle platform challenge.
+Automated SMS reactivation pipeline with BigQuery audience segmentation, ESP batching/deduplication, Airflow orchestration, and observability design.
 
-## Dev cycle plan:
+## Coverage
 
 - **Part 1:** Audience segmentation SQL in `src/sql/audience_query.sql`
 - **Part 2:** ESP batching, retry, deduplication, and failure logging in `src/pipeline.py`
@@ -11,62 +11,20 @@ Automated SMS reactivation pipeline for the lifecycle platform challenge.
 - **Part 5:** Observability design in `part5_observability_design.md`
 - **AI Usage Log:** `ai-session/`
 
-## Setup
+## Quick Start
 
-### Prerequisites
-
-- Python 3.12+
-- LocalGCP (for local BigQuery emulation): https://localgcp.com/
-- Colima (Docker backend for macOS)
+Requirements: Python 3.12+, Docker/Colima, and LocalGCP's BigQuery emulator.
 
 ```bash
-# Install LocalGCP
 brew install slokam-ai/tap/localgcp
-
-# Install Colima (if not installed)
-brew install colima
-
-# Start Colima (Docker backend)
 colima start --vm-type=qemu
-
-# Start BigQuery emulator (requires Docker)
 localgcp up --services=bigquery
 
-# Install Python dependencies
 pip install -e .
-```
-
-## Run with Docker (Airflow)
-
-```bash
-# Copy environment template and edit with your values
-cp .env.example .env  # Or create your own with real keys
-
-# Generate secure keys for production:
-# python -c "import secrets; print(secrets.token_hex(32))"
-
-# Start Airflow
 docker-compose up -d
-
-# Access UI at http://localhost:8080
-# Default credentials: admin / admin (or from .env)
 ```
 
-The DAG includes a `database_provisioning` task that creates the required tables automatically. In local/demo mode, it also loads seed data only when `renter_profiles` is empty, so repeated runs remain idempotent.
-
-### Security Warning
-
-The default `.env.example` and `.env` file contains placeholder values for **local testing only**.
-
-**Not suitable for production!** The placeholder keys are:
-- NOT cryptographically secure
-- Publicly known (not secret)
-
-For production, generate real keys:
-```bash
-FERNET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
-SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
-```
+Open Airflow at `http://localhost:8080`. The DAG includes a `database_provisioning` task that creates required tables and loads local seed data only when the demo tables are empty.
 
 ## Run Tests
 
@@ -74,58 +32,46 @@ SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 pytest tests/
 ```
 
+## Expected Demo Result
+
+The seed data produces **2 eligible renters**:
+
+- `renter_001`
+- `renter_002`
+
+The audience is exported to `sms_reactivation_audience_staging` before validation and send. See `working_logic.md` for the full seed-data walkthrough.
+
+## Key Design Decisions
+
+- **Idempotent provisioning:** Airflow creates schema every run and only loads local seed data when tables are empty.
+- **Stable audience query:** Date logic anchors to `CURRENT_DATE()` so same-day reruns return the same audience.
+- **ESP interface preserved:** `execute_campaign_send()` accepts any client with `send_batch(campaign_id, recipients)`. The included `ESPClient` is a safe local stub.
+- **File-based deduplication:** Uses `sent_renters.json` for the local implementation; production design moves this to a durable send log table.
+- **Airflow parse-time hygiene:** Heavy BigQuery/project imports live inside task functions to avoid DagBag import timeouts.
+
 ## Project Structure
 
 ```
-.
-├── sql/
-│   ├── schema.sql          # Table definitions (CREATE IF NOT EXISTS)
-│   ├── init_schema.sql    # Schema only (for Airflow init task)
-│   ├── seed_data.sql      # Sample data (dev only)
-│   └── audience_query.sql # Audience segmentation query
-├── src/
-│   ├── database.py       # BigQuery client + schema/seed setup
-│   ├── repository.py     # Audience query repository
-│   └── pipeline.py       # ESP send pipeline
-├── dags/
-│   ├── sms_reactivation_dag.py
-│   └── helpers.py
-├── tests/
-│   └── test_pipeline.py
-├── part4_value_model_integration.md
-├── part5_observability_design.md
-├── working_logic.md     # Seed/query result explanation
-├── ai-session/          # AI usage log
-└── pyproject.toml
+src/sql/audience_query.sql          # Audience segmentation
+src/sql/schema.sql                  # Tables, staging, reporting
+src/sql/seed_data.sql               # Local demo data
+src/pipeline.py                     # ESP send pipeline
+src/repository.py                   # BigQuery repository + staging export
+dags/sms_reactivation_dag.py        # Airflow DAG
+dags/helpers.py                     # Validation, reporting, Slack helpers
+part4_value_model_integration.md    # Model score design
+part5_observability_design.md       # Datadog/alerting/recovery design
+working_logic.md                    # Seed data explanation
+ai-session/                         # AI usage log
 ```
-
-## Database Functions
-
-| Function | Purpose | Auto-run |
-|----------|---------|---------|
-| `initialize_schema()` | Create tables | Yes, through Airflow provisioning |
-| `load_seed_data()` | Load demo data if empty | Yes, through Airflow provisioning |
-| `setup_for_development()` | Dev setup helper | Not required for normal run |
-| `run_audience_query()` | Run query | Yes |
 
 ## Assumptions
 
-- LocalGCP runs on localhost:9060
-- Colima must be running for Docker-based services
-- Tables use `CREATE TABLE IF NOT EXISTS` (idempotent)
-- Airflow provisioning creates schema and loads seed data only when the local demo tables are empty
+- LocalGCP runs the BigQuery emulator locally.
+- `.env.example` contains local-only placeholder values.
+- The ESP integration is represented by a stub client because no real ESP endpoint was provided.
 
-## Design Decisions
-
-1. **Idempotent provisioning** - Airflow creates schema every run and only loads local seed data when tables are empty
-2. **LEFT JOIN + GROUP BY** - Efficient for counting searches per renter
-3. **NOT EXISTS** - Cleaner than LEFT JOIN + IS NULL for suppression exclusion
-4. **EPOCH calculation** - LocalBQ compatible alternative to TIMESTAMP_DIFF
-5. **ESPClient interface preserved** - `execute_campaign_send()` accepts any client with `send_batch(campaign_id, recipients)`, while the local `ESPClient` is a safe stub for demo runs
-6. **File-based deduplication** - Uses `sent_renters.json` for the poc; production design moves this to a durable send log table
-7. **Airflow parse-time hygiene** - Heavy project imports that load BigQuery/google client code are imported inside task functions, so the DAG file remains fast to parse and avoids DagBag import timeouts
-
-## Future improvements
+## Future Improvements
 
 - Replace the demo LocalGCP setup with managed BigQuery datasets and service accounts.
 - Replace the local ESP stub with a real HTTP client and request-level idempotency keys.

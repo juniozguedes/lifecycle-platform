@@ -1,6 +1,6 @@
 # Working Logic - Audience Segmentation
 
-This document explains why only 2 renters (renter_001, renter_002) qualified for the SMS reactivation campaign based on the 8 criteria defined in the challenge.
+This document explains why only 2 renters (renter_001, renter_002) qualified for the SMS reactivation campaign based on the 8 audience criteria.
 
 ---
 
