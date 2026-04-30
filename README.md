@@ -2,6 +2,8 @@
 
 Automated SMS reactivation pipeline with BigQuery audience segmentation, ESP batching/deduplication, Airflow orchestration, and observability design.
 
+![Airflow DAG](airflow_sample.png)
+
 ## Coverage
 
 - **Part 1:** Audience segmentation SQL in `src/sql/audience_query.sql`
