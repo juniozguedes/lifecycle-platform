@@ -252,8 +252,6 @@ localgcp up --services=bigquery
 ### Tests
 12 passing
 
----
-
 ## Session: Restructure & Airflow Integration (2026-04-28)
 
 ### Actions Taken
@@ -295,8 +293,6 @@ localgcp up --services=bigquery
 
 ### Tests
 12 passing
-
----
 
 ## Session: Helper Refactor & DAG Simplification (2026-04-29)
 
@@ -345,3 +341,64 @@ localgcp up --services=bigquery
 
 ### Tests
 12 passing
+
+---
+
+## Session: Final Alignment (2026-04-30)
+
+### Actions Taken
+
+1. **Verified audience correctness against seeded data**:
+   - Confirmed only `renter_001` and `renter_002` qualify for SMS reactivation.
+   - Confirmed `renter_008` is correctly excluded because it appears in `suppression_list`.
+   - Updated audience query date math to anchor to `CURRENT_DATE()` so results are stable within the same day.
+
+2. **Added staging-table export for Airflow Task 1**:
+   - Added `sms_reactivation_audience_staging` to `src/sql/schema.sql`.
+   - Added `AudienceRepository.export_eligible_recipients_to_staging()`.
+   - Added `AudienceRepository.get_staged_recipients()`.
+   - Updated `run_audience_query` task to materialize the audience first, then read from staging.
+   - Verified Airflow logs show `Exported 2 eligible recipients to staging table`.
+
+3. **Completed written documentation**:
+   - Added `part4_value_model_integration.md`.
+   - Added `part5_observability_design.md`.
+   - Added/updated `working_logic.md` to explain why the seed data produces exactly two eligible renters.
+
+4. **Final documentation cleanup**:
+   - Updated `README.md` to map the repo to Parts 1-5 of the plan.
+   - Removed obsolete manual database setup instructions from `README.md`.
+   - Documented that Airflow `database_provisioning` creates schema and loads local seed data only when tables are empty.
+   - Updated `AGENTS.md` with the same Airflow provisioning guidance.
+   - Documented Airflow parse-time import best practice in `README.md` and `AGENTS.md`.
+
+5. **Airflow import best-practice adjustment**:
+   - Kept lightweight Airflow/helper imports at module scope.
+   - Moved heavier project imports (`src.database`, `src.repository`, `src.pipeline`) inside task functions to avoid DagBag import timeouts.
+   - Verified `airflow dags list` parses and shows `sms_reactivation`.
+
+6. **Removed temporary debug database view CLI**:
+   - Removed `view_data()`.
+   - Removed `--view` and `--limit` CLI options.
+   - Verified no `view_data`, `--view`, or `--limit` references remain.
+
+### Files Changed
+
+- `README.md` - coverage, provisioning notes, import best practice
+- `AGENTS.md` - provisioning and Airflow import guidance
+- `dags/sms_reactivation_dag.py` - staging table flow, task-local heavy imports
+- `src/repository.py` - staging export/read methods
+- `src/database.py` - removed debug view CLI
+- `src/sql/audience_query.sql` - day-stable audience query
+- `src/sql/schema.sql` - staging table
+- `src/sql/seed_data.sql` - clarified suppression edge case
+- `part4_value_model_integration.md` - new Part 4 design doc
+- `part5_observability_design.md` - new Part 5 observability doc
+- `working_logic.md` - seed/query result explanation
+
+### Verification
+
+- `python -m pytest` -> 12 passing
+- `python -m compileall src dags` -> success
+- `airflow tasks test sms_reactivation run_audience_query 2026-04-30` -> exported 2 eligible recipients to `sms_reactivation_audience_staging`
+- `airflow dags list` -> `sms_reactivation` parses successfully
