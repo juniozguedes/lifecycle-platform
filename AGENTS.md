@@ -79,12 +79,13 @@ pip install -e .
 # Run tests
 pytest tests/
 
-# Setup schema only (production)
-python -m src.database --mode production
-
-# Setup schema + seed data (development)
-python -m src.database --mode development
+# Start Airflow; database_provisioning creates schema and local seed data if empty
+docker-compose up -d
 ```
+
+### Airflow Import Style
+
+Keep DAG parse-time imports lightweight. Standard library, Airflow, and local DAG helpers may be imported at module scope, but heavier project modules that load BigQuery/google client code should be imported inside task functions. This keeps DagBag parsing fast and avoids Airflow import timeouts.
 
 ### Skills
 
@@ -97,7 +98,7 @@ AI agent skills available in this project:
 
 To invoke a skill, use the `skill` tool in OpenCode.
 
-### Database Schema
+### Airflow Import Style
 
 - `renter_activity` — User events (page_view, search, etc.)
 - `renter_profiles` — User profile data with consent flags

@@ -16,7 +16,7 @@ VALUES
   ('renter_006', 'frank@example.com', '+1555123006', TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 35 DAY), 'active', TRUE, TRUE, NULL, TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 300 DAY)),
   -- Edge: dnd_until in the future
   ('renter_007', 'grace@example.com', '+1555123007', TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 40 DAY), 'churned', TRUE, TRUE, TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 10 DAY), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 120 DAY)),
-  -- Edge: dnd_until in the past (should be included)
+  -- Edge: dnd_until in the past, but later excluded by suppression_list
   ('renter_008', 'henry@example.com', '+1555123008', TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 55 DAY), 'churned', TRUE, TRUE, TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 5 DAY), TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 80 DAY)),
   -- Edge: < 30 days ago (should be excluded)
   ('renter_009', 'iris@example.com', '+1555123009', TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 15 DAY), 'churned', TRUE, TRUE, NULL, TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 200 DAY)),
