@@ -49,10 +49,20 @@ CREATE TABLE IF NOT EXISTS campaign_results (
     created_at TIMESTAMP
 );
 
--- 5. ML Predictions Schema
+-- 5. Audience Staging Table
+CREATE TABLE IF NOT EXISTS sms_reactivation_audience_staging (
+    renter_id STRING,
+    email STRING,
+    phone STRING,
+    last_login TIMESTAMP,
+    search_count INT64,
+    days_since_login FLOAT64
+);
+
+-- 6. ML Predictions Schema
 CREATE SCHEMA IF NOT EXISTS ml_predictions;
 
--- 5. ML Predictions Table
+-- 7. ML Predictions Table
 CREATE TABLE IF NOT EXISTS ml_predictions.renter_send_scores (
     renter_id STRING,
     predicted_conversion_probability FLOAT64,

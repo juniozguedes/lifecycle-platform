@@ -20,13 +20,6 @@ from helpers import (
     validate_audience_size,
     validate_recipient_data,
 )
-from src.database import (
-    get_bigquery_client,
-    initialize_schema,
-    load_seed_data,
-)
-from src.pipeline import ESPClient, execute_campaign_send
-from src.repository import AudienceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +70,8 @@ with DAG(
         - If tables exist but empty: load seed data
         - If tables have data: skip (idempotent)
         """
+        from src.database import get_bigquery_client, initialize_schema, load_seed_data
+
         project_id = get_project_id()
         logger.info("Starting database provisioning for project: %s", project_id)
         client = get_bigquery_client(project_id)
@@ -113,16 +108,22 @@ with DAG(
 
     @task(task_id="run_audience_query")
     def run_audience_query() -> dict[str, Any]:
+        from src.database import get_bigquery_client
+        from src.repository import AudienceRepository
+
         project_id = get_project_id()
         logger.info("Starting audience query for project: %s", project_id)
         client = get_bigquery_client(project_id)
         repository = AudienceRepository(client)
-        recipients = repository.get_eligible_recipients()
+        staging_count = repository.export_eligible_recipients_to_staging()
+        logger.info("Exported %d eligible recipients to staging table", staging_count)
+        recipients = repository.get_staged_recipients()
         count = len(recipients)
         logger.info("Audience query complete: %d eligible recipients found", count)
         return {
             "recipients": recipients,
             "count": count,
+            "staging_table": "sms_reactivation_audience_staging",
             "query_timestamp": datetime.now(UTC).isoformat(),
         }
 
@@ -172,6 +173,8 @@ with DAG(
                 "audience_count": 0,
             }
 
+        from src.pipeline import ESPClient, execute_campaign_send
+
         logger.info("Starting campaign send: campaign_id=%s, recipients=%d", CAMPAIGN_ID, len(recipients))
         esp_client = ESPClient()
         result = execute_campaign_send(campaign_id=CAMPAIGN_ID, audience=recipients, esp_client=esp_client)
@@ -183,6 +186,8 @@ with DAG(
 
     @task(task_id="log_results_and_notify")
     def log_results_and_notify(campaign_data: dict[str, Any]) -> dict[str, bool]:
+        from src.database import get_bigquery_client
+
         project_id = get_project_id()
         client = get_bigquery_client(project_id)
         ctx = get_current_context()

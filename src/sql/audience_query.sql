@@ -8,9 +8,10 @@
 --   5. sms_consent = TRUE
 --   6. NOT in suppression list
 --   7. dnd_until is NULL or in the past
---   8. Idempotent (uses CURRENT_TIMESTAMP())
+--   8. Idempotent within a day (anchors all date math to CURRENT_DATE())
 --
--- Expected result: renter_001, renter_002, renter_008 (3 records)
+-- Expected result from seed data: renter_001, renter_002 (2 records)
+-- renter_008 otherwise qualifies, but is excluded by suppression_list.
 
 SELECT
     p.renter_id,
@@ -18,15 +19,15 @@ SELECT
     p.phone,
     p.last_login,
     COUNT(a.renter_id) AS search_count,
-    (EPOCH(CURRENT_TIMESTAMP::TIMESTAMP) - EPOCH(p.last_login)) / 86400 AS days_since_login
+    (EPOCH(CURRENT_DATE()) - EPOCH(DATE(p.last_login))) / 86400 AS days_since_login
 FROM renter_profiles p
 LEFT JOIN renter_activity a
     ON p.renter_id = a.renter_id
     AND a.event_type = 'search'
-    AND a.event_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+    AND a.event_timestamp >= TIMESTAMP_SUB(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY), INTERVAL 90 DAY)
 WHERE
     -- Criterion 1: Last login more than 30 days ago
-    p.last_login < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+    DATE(p.last_login) < DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
     -- Criterion 2: Subscription status is churned
     AND p.subscription_status = 'churned'
     -- Criterion 3: At least 3 searches in past 90 days
@@ -36,7 +37,7 @@ WHERE
     -- Criterion 5: SMS consent = TRUE
     AND p.sms_consent = TRUE
     -- Criterion 7: dnd_until is NULL or in the past
-    AND (p.dnd_until IS NULL OR p.dnd_until < CURRENT_TIMESTAMP())
+    AND (p.dnd_until IS NULL OR DATE(p.dnd_until) < CURRENT_DATE())
     -- Criterion 6: Exclude suppression list (LEFT JOIN + IS NULL pattern)
     AND NOT EXISTS (
         SELECT 1
